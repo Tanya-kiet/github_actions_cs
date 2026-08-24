@@ -1,0 +1,89 @@
+name: Incident Switchboard
+
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('{0}{1}', inputs.severity, inputs.deep_scan && ' SCAN' || '') || format('Automatic Switchboard - {0}', github.event_name) }}
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      severity:
+        type: choice
+        options: [low, medium, high]
+        default: low
+        required: true
+      deep_scan:
+        type: boolean
+        default: false
+        required: true
+      skip_tests:
+        type: boolean
+        default: false
+        required: true
+      reason:
+        type: string
+        required: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Run: ${{ github.run_number }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Severity: ${{ inputs.severity }}"
+            echo "Deep scan: ${{ inputs.deep_scan }}"
+            echo "Skip tests: ${{ inputs.skip_tests }}"
+            echo "Reason: ${{ inputs.reason }}"
+          else
+            echo "Automatic run; no reason supplied"
+          fi
+          echo "Severity message: ${{ inputs.severity }}"
+
+  tests:
+    needs: triage
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+        working-directory: app
+      - run: npm test
+        working-directory: app
+
+  scan:
+    needs: triage
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.deep_scan || inputs.severity == 'high' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: sudo apt-get update && sudo apt-get install -y jq
+      - run: |
+          cat > scan.json <<EOF
+          {
+            "severity": "${{ inputs.severity || 'automatic' }}",
+            "deep_scan": "${{ inputs.deep_scan || 'false' }}",
+            "actor": "${{ github.actor }}",
+            "run_number": "${{ github.run_number }}",
+            "time": "$(date -u)"
+          }
+          EOF
+          echo "Severity: $(jq -r '.severity' scan.json)"
+          echo "Actor: $(jq -r '.actor' scan.json)"
+
+  report:
+    needs: [tests, scan]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Tests: ${{ needs.tests.result }}"
+          echo "Scan: ${{ needs.scan.result }}"
+          echo "Switchboard closed"

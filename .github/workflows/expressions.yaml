@@ -1,6 +1,7 @@
 name: Using Expressions
 
 run-name: Using Expressions | DEBUG - ${{inputs.debug && 'ON' || 'OFF'}}
+# DEBUG - ON || DEBUG  - OFF
 
 on:
     workflow_dispatch:
@@ -32,4 +33,3 @@ jobs:
             - name: Greeting
               run: |
                 echo "Hello, ${{ github.actor }}! Welcome to the Using Expressions workflow."
-            
