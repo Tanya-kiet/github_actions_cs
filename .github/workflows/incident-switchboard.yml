@@ -36,17 +36,27 @@ jobs:
           echo "Actor: ${{ github.actor }}"
           echo "Run: ${{ github.run_number }}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Severity: ${{ inputs.severity }}"
-            echo "Deep scan: ${{ inputs.deep_scan }}"
-            echo "Skip tests: ${{ inputs.skip_tests }}"
-            echo "Reason: ${{ inputs.reason }}"
+            - name: Severity message
+      - name: Severity message
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ "${{ inputs.severity }}" = "low" ]; then
+            echo "Low severity: standard response"
+          elif [ "${{ inputs.severity }}" = "medium" ]; then
+            echo "Medium severity: increased attention required"
           else
-            echo "Automatic run; no reason supplied"
+            echo "High severity: immediate response required"
           fi
+          echo "Deep scan: ${{ inputs.deep_scan }}"
+          echo "Skip tests: ${{ inputs.skip_tests }}"
+          echo "Reason: ${{ inputs.reason }}"
           echo "Severity message: ${{ inputs.severity }}"
+      - name: Automatic run message
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo "Automatic run; no reason supplied"
 
   tests:
-    needs: triage
+    needs: [triage]
     if: ${{ github.event_name != 'workflow_dispatch' || !inputs.skip_tests }}
     runs-on: ubuntu-latest
     steps:
