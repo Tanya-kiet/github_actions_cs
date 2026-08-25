@@ -1,0 +1,7 @@
+{
+  "name": "incident-switchboard-app",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node test.js"
+  }
+}
